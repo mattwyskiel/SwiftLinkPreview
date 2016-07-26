@@ -13,7 +13,7 @@ public class PreviewError {
     public var message: String?
     public var type: PreviewErrorType?
     
-    public init(type: PreviewErrorType, url: NSURL) {
+    public init(type: PreviewErrorType, url: URL) {
         
         self.type = type
         self.message = type.rawValue + ": \"\(url.absoluteString)\""

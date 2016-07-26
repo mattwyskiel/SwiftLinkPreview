@@ -12,9 +12,9 @@ public class SwiftLinkPreview {
     // MARK: - Vars
     static let titleMinimumRelevant: Int = 15
     static let decriptionMinimumRelevant: Int = 100
-    private var url: NSURL!
-    private var task: NSURLSessionDataTask?
-    private let session = NSURLSession.sharedSession()
+    private var url: URL!
+    private var task: URLSessionDataTask?
+    private let session = URLSession.shared
     internal var text: String!
     internal var result: [String: AnyObject] = [:]
     
@@ -25,7 +25,7 @@ public class SwiftLinkPreview {
     
     // MARK: - Functions
     // Make preview
-    public func preview(text: String!, onSuccess: ([String: AnyObject]) -> (), onError: (PreviewError) -> ()) {
+    public func preview(_ text: String!, onSuccess: ([String: AnyObject]) -> (), onError: (PreviewError) -> ()) {
         
         self.resetResult()
         
@@ -72,7 +72,7 @@ public class SwiftLinkPreview {
     }
     
     // Fill remaining info about the crawling
-    private func fillRemainingInfo(title: String, description: String, images: [String], image: String) {
+    private func fillRemainingInfo(_ title: String, description: String, images: [String], image: String) {
         
         self.result["title"] = title
         self.result["description"] = description
@@ -98,13 +98,13 @@ public class SwiftLinkPreview {
 extension SwiftLinkPreview {
     
     // Extract first URL from text
-    internal func extractURL() -> NSURL? {
+    internal func extractURL() -> URL? {
         
         let explosion = self.text.characters.split{$0 == " "}.map(String.init)
         let pieces = explosion.filter({ $0.trim.isValidURL() })
         let piece = pieces[0]
         
-        if let url = NSURL(string: piece) {
+        if let url = URL(string: piece) {
             
             return url
             
@@ -115,15 +115,15 @@ extension SwiftLinkPreview {
     }
     
     // Unshorten URL by following redirections
-    private func unshortenURL(url: NSURL, completion: (NSURL) -> ()) {
+    private func unshortenURL(_ url: URL, completion: (URL) -> ()) {
         
-        self.task = session.dataTaskWithURL(url) { data, response, error in
+        self.task = session.dataTask(with: url) { data, response, error in
             
-            if let finalResult = response?.URL {
+            if let finalResult = response?.url {
                 
                 if(finalResult.absoluteString == url.absoluteString) {
                     
-                    dispatch_async(dispatch_get_main_queue()) {
+                    DispatchQueue.main.async {
                         
                         completion(url)
                         
@@ -138,7 +138,7 @@ extension SwiftLinkPreview {
                 
             } else {
                 
-                dispatch_async(dispatch_get_main_queue()) {
+                DispatchQueue.main.async {
                     
                     completion(url)
                     
@@ -157,25 +157,28 @@ extension SwiftLinkPreview {
     }
     
     // Extract HTML code and the information contained on it
-    private func extractInfo(completion: () -> (), onError: (PreviewError) -> ()) {
+    private func extractInfo(_ completion: () -> (), onError: (PreviewError) -> ()) {
         
-        if let url: NSURL = self.result["finalUrl"] as? NSURL {
+        if let url: URL = self.result["finalUrl"] as? URL {
             
-            if(url.absoluteString.isImage()) {
+            if((url.absoluteString?.isImage()) != nil) {
                 
-                self.fillRemainingInfo("", description: "", images: [url.absoluteString], image: url.absoluteString)
+                self.fillRemainingInfo("", description: "", images: [url.absoluteString!], image: url.absoluteString!)
                 completion()
                 
             } else {
-                
-                let sourceUrl = url.absoluteString.hasPrefix("http://") || url.absoluteString.hasPrefix("https://") ? url : NSURL(string: "http://\(url)")
+                var sourceUrl: URL?
+                if let absoluteString = url.absoluteString {
+                    sourceUrl = absoluteString.hasPrefix("http://") || absoluteString.hasPrefix("https://") ? url : URL(string: "http://\(url)")
+                }
                 
                 do {
                     
                     // Try to get the page with its default enconding
-                    var source = try String(contentsOfURL: sourceUrl!).extendedTrim
+                    var source = try String(contentsOf: sourceUrl!).extendedTrim
                     
-                    dispatch_async(dispatch_get_main_queue()) {
+                    
+                    DispatchQueue.main.async {
                         
                         source = self.cleanSource(source)
                         
@@ -187,7 +190,7 @@ extension SwiftLinkPreview {
                     
                 } catch _ as NSError {
                     
-                    self.tryAnotherEnconding(sourceUrl!, encodingArray: String.availableStringEncodings(), completion: completion, onError: onError)
+                    self.tryAnotherEnconding(sourceUrl!, encodingArray: String.availableStringEncodings, completion: completion, onError: onError)
                     
                 }
                 
@@ -203,19 +206,19 @@ extension SwiftLinkPreview {
     }
     
     // Try to get the page using another available encoding instead the page's own encoding
-    private func tryAnotherEnconding(sourceUrl: NSURL, encodingArray: [NSStringEncoding], completion: () -> (), onError: (PreviewError) -> ()) {
+    private func tryAnotherEnconding(_ sourceUrl: URL, encodingArray: [String.Encoding], completion: () -> (), onError: (PreviewError) -> ()) {
         
         if encodingArray.isEmpty {
             
-            onError(PreviewError(type: .ParseError, url: url.absoluteString))
+            onError(PreviewError(type: .ParseError, url: url.absoluteString!))
             
         } else {
             
             do {
                 
-                var source = try String(contentsOfURL: sourceUrl, encoding: encodingArray[0]).extendedTrim
+                var source = try String(contentsOf: sourceUrl, encoding: encodingArray[0]).extendedTrim
                 
-                dispatch_async(dispatch_get_main_queue()) {
+                DispatchQueue.main.async {
                     
                     source = self.cleanSource(source)
                     
@@ -237,7 +240,7 @@ extension SwiftLinkPreview {
     }
     
     // Removing unnecessary data from the source
-    private func cleanSource(source: String) -> String {
+    private func cleanSource(_ source: String) -> String {
         
         var source = source
         source = source.deleteTagByPattern(Regex.inlineStylePattern)
@@ -252,7 +255,7 @@ extension SwiftLinkPreview {
     
     
     // Perform the page crawiling
-    private func performPageCrawling(htmlCode: String) {
+    private func performPageCrawling(_ htmlCode: String) {
         
         var htmlCode = htmlCode
         
@@ -265,9 +268,9 @@ extension SwiftLinkPreview {
     
     
     // Extract canonical URL
-    internal func extractCanonicalURL(finalUrl: NSURL!) -> String {
+    internal func extractCanonicalURL(_ finalUrl: URL!) -> String {
         
-        let preUrl: String = finalUrl.absoluteString
+        let preUrl: String = finalUrl.absoluteString!
         let url = preUrl
             .replace("http://", with: "")
             .replace("https://", with: "")
@@ -303,12 +306,12 @@ extension SwiftLinkPreview {
     }
     
     // Extract base URL
-    private func extractBaseUrl(url: String) -> String {
+    private func extractBaseUrl(_ url: String) -> String {
         
         var url = url
-        if let slash = url.rangeOfString("/") {
+        if let slash = url.range(of: "/") {
             
-            let endIndex = url.startIndex.distanceTo(slash.endIndex)
+            let endIndex = url.distance(from: url.startIndex, to: slash.upperBound)
             url = url.substring(0, end: endIndex > 1 ? endIndex - 1 : 0)
             
         }
@@ -323,7 +326,7 @@ extension SwiftLinkPreview {
 extension SwiftLinkPreview {
     
     // Search for meta tags
-    internal func crawlMetaTags(htmlCode: String) {
+    internal func crawlMetaTags(_ htmlCode: String) {
         
         let possibleTags = ["title", "description", "image"]
         let metatags = Regex.pregMatchAll(htmlCode, regex: Regex.metatagPattern, index: 1)
@@ -332,14 +335,14 @@ extension SwiftLinkPreview {
             
             for tag in possibleTags {
                 
-                if (metatag.rangeOfString("property=\"og:\(tag)") != nil ||
-                    metatag.rangeOfString("property='og:\(tag)") != nil ||
-                    metatag.rangeOfString("name=\"twitter:\(tag)") != nil ||
-                    metatag.rangeOfString("name='twitter:\(tag)") != nil ||
-                    metatag.rangeOfString("name=\"\(tag)") != nil ||
-                    metatag.rangeOfString("name='\(tag)") != nil ||
-                    metatag.rangeOfString("itemprop=\"\(tag)") != nil ||
-                    metatag.rangeOfString("itemprop='\(tag)") != nil) {
+                if (metatag.range(of: "property=\"og:\(tag)") != nil ||
+                    metatag.range(of: "property='og:\(tag)") != nil ||
+                    metatag.range(of: "name=\"twitter:\(tag)") != nil ||
+                    metatag.range(of: "name='twitter:\(tag)") != nil ||
+                    metatag.range(of: "name=\"\(tag)") != nil ||
+                    metatag.range(of: "name='\(tag)") != nil ||
+                    metatag.range(of: "itemprop=\"\(tag)") != nil ||
+                    metatag.range(of: "itemprop='\(tag)") != nil) {
                     
                     if((self.result[tag] as! String).isEmpty) {
                         
@@ -361,7 +364,7 @@ extension SwiftLinkPreview {
     }
     
     // Crawl for title if needed
-    internal func crawlTitle(htmlCode: String) -> String {
+    internal func crawlTitle(_ htmlCode: String) -> String {
         
         if let title: String = self.result["title"] as? String {
             
@@ -400,7 +403,7 @@ extension SwiftLinkPreview {
     }
     
     // Crawl for description if needed
-    internal func crawlDescription(htmlCode: String) -> String {
+    internal func crawlDescription(_ htmlCode: String) -> String {
         
         if let description: String = self.result["description"] as? String {
             
@@ -421,7 +424,7 @@ extension SwiftLinkPreview {
     }
     
     // Crawl for images
-    internal func crawlImages(htmlCode: String) {
+    internal func crawlImages(_ htmlCode: String) {
         
         let mainImage: String = self.result["image"] as! String
         
@@ -464,7 +467,7 @@ extension SwiftLinkPreview {
     }
     
     // Add prefix image if needed
-    private func addImagePrefixIfNeeded(image: String) -> String {
+    private func addImagePrefixIfNeeded(_ image: String) -> String {
         
         var image = image
         
@@ -487,7 +490,7 @@ extension SwiftLinkPreview {
     }
     
     // Crawl the entire code
-    internal func crawlCode(content: String, minimum: Int) -> String {
+    internal func crawlCode(_ content: String, minimum: Int) -> String {
         
         let resultFirstSearch = self.getTagContent("p", content: content, minimum: minimum)
         
@@ -541,7 +544,7 @@ extension SwiftLinkPreview {
     }
     
     // Get tag content
-    private func getTagContent(tag: String, content: String, minimum: Int) -> String {
+    private func getTagContent(_ tag: String, content: String, minimum: Int) -> String {
         
         let pattern = Regex.tagPattern(tag)
         

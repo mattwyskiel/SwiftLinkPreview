@@ -36,7 +36,7 @@ class RegexTests: XCTestCase {
         
         for url in URLs.bunch {
             
-            let finalUrl = NSURL(string: url[1])
+            let finalUrl = URL(string: url[1])
             self.slp.result["finalUrl"] = finalUrl
             let canonical = self.slp.extractCanonicalURL(finalUrl)
             

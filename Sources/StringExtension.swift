@@ -22,31 +22,31 @@ extension String {
     // Trim
     var trim: String {
         
-        return self.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet())
+        return self.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         
     }
     
     // Remove extra white spaces
     var extendedTrim: String {
         
-        let components = self.componentsSeparatedByCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet())
-        return components.filter { !$0.isEmpty }.joinWithSeparator(" ").trim
+        let components = self.components(separatedBy: CharacterSet.whitespacesAndNewlines)
+        return components.filter { !$0.isEmpty }.joined(separator: " ").trim
         
     }
     
     // Decode HTML entities
     var decoded: String {
         
-        let encodedData = self.dataUsingEncoding(NSUTF8StringEncoding)!
+        let encodedData = self.data(using: String.Encoding.utf8)!
         let attributedOptions: [String: AnyObject] =
             [
                 NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType,
-                NSCharacterEncodingDocumentAttribute: NSUTF8StringEncoding
+                NSCharacterEncodingDocumentAttribute: String.Encoding.utf8.rawValue
         ]
         
         do {
             
-            let attributedString = try NSAttributedString(data: encodedData, options: attributedOptions, documentAttributes: nil)
+            let attributedString = try AttributedString(data: encodedData, options: attributedOptions, documentAttributes: nil)
             
             return attributedString.string
             
@@ -66,16 +66,16 @@ extension String {
     }
     
     // Delete tab by pattern
-    func deleteTagByPattern(pattern: String) -> String {
+    func deleteTagByPattern(_ pattern: String) -> String {
         
-        return self.stringByReplacingOccurrencesOfString(pattern, withString: "", options: .RegularExpressionSearch, range: nil)
+        return self.replacingOccurrences(of: pattern, with: "", options: .regularExpression, range: nil)
         
     }
     
     // Replace
-    func replace(search: String, with: String) -> String {
+    func replace(_ search: String, with: String) -> String {
         
-        if let replaced: String = self.stringByReplacingOccurrencesOfString(search, withString: with) {
+        if let replaced: String = self.replacingOccurrences(of: search, with: with) {
             
             return replaced
             
@@ -88,12 +88,12 @@ extension String {
     }
     
     // Substring
-    func substring(start: Int, end: Int) -> String {
+    func substring(_ start: Int, end: Int) -> String {
         
-        return self.substringWithRange(Range(self.startIndex.advancedBy(start) ..< self.startIndex.advancedBy(end)))
+        return self.substring(with: Range(self.characters.index(self.startIndex, offsetBy: start) ..< self.characters.index(self.startIndex, offsetBy: end)))
         
     }
-    func substring(range: NSRange) -> String {
+    func substring(_ range: NSRange) -> String {
         
         var end = range.location + range.length
         end = end > self.characters.count ? self.characters.count - 1 : end
